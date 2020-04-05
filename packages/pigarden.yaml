@@ -1,0 +1,251 @@
+weather:
+  - platform: openweathermap
+    api_key: d4d22ea805788420267971135563b4cc
+    name: openweather
+
+switch:
+  #
+  # Switch per gestire le elettrovalvole di piGarden
+  #
+
+  - platform: template
+    switches:
+      pigarden_zone_giardino_posteriore_dx:
+        value_template: "{{ is_state('binary_sensor.pigarden_state_giardino_posteriore_dx', 'on') }}"
+        turn_on:
+          service: mqtt.publish
+          data:
+            topic: "pigarden/command"
+            #payload: "open Giardino_Posteriore_DX"
+            payload_template: > 
+              {% if is_state( 'input_boolean.pigarden_force_giardino_posteriore_dx', 'off' ) %}
+                open Giardino_Posteriore_DX
+              {% else %}
+                open Giardino_Posteriore_DX force
+              {% endif %}
+        turn_off:
+          service: mqtt.publish
+          data:
+            topic: "pigarden/command"
+            payload: "close Giardino_Posteriore_DX"
+        entity_picture_template: >
+          {% if not is_state( 'binary_sensor.pigarden_state_giardino_posteriore_dx', 'on' ) %}
+            /local/icons/sprinkler-pause-3.gif
+          {% else %}
+            /local/icons/sprinkler-play-3.gif
+          {% endif %}
+
+  - platform: template
+    switches:
+      pigarden_zone_giardino_posteriore_sx:
+        value_template: "{{ is_state('binary_sensor.pigarden_state_giardino_posteriore_sx', 'on') }}"
+        turn_on:
+          service: mqtt.publish
+          data:
+            topic: "pigarden/command"
+            payload_template: > 
+              {% if is_state( 'input_boolean.pigarden_force_giardino_posteriore_sx', 'off' ) %}
+                open Giardino_Posteriore_SX
+              {% else %}
+                open Giardino_Posteriore_SX force
+              {% endif %}
+        turn_off:
+          service: mqtt.publish
+          data:
+            topic: "pigarden/command"
+            payload: "close Giardino_Posteriore_SX"
+        entity_picture_template: >
+          {% if not is_state( 'binary_sensor.pigarden_state_giardino_posteriore_sx', 'on' ) %}
+            /local/icons/sprinkler-pause-3.gif
+          {% else %}
+            /local/icons/sprinkler-play-3.gif
+          {% endif %}
+  - platform: template
+    switches:
+      pigarden_zone_giardino_posteriore_cn:
+        value_template: "{{ is_state('binary_sensor.pigarden_state_giardino_posteriore_cn', 'on') }}"
+        turn_on:
+          service: mqtt.publish
+          data:
+            topic: "pigarden/command"
+            payload_template: >
+              {% if is_state( 'input_boolean.pigarden_force_giardino_posteriore_cn', 'off' ) %}
+                open Giardino_Posteriore_CN
+              {% else %}
+                open Giardino_Posteriore_CN force
+              {% endif %}
+        turn_off:
+          service: mqtt.publish
+          data:
+            topic: "pigarden/command"
+            payload: "close Giardino_Posteriore_CN"
+        entity_picture_template: >
+          {% if not is_state( 'binary_sensor.pigarden_state_giardino_posteriore_cn', 'on' ) %}
+            /local/icons/sprinkler-pause-3.gif
+          {% else %}
+            /local/icons/sprinkler-play-3.gif
+          {% endif %}
+
+
+
+sensor:
+
+  #
+  # Sensore informativo piGarden
+  #
+  - platform: mqtt
+    name: pigarden_info_icon
+    state_topic: "pigarden/result"
+    value_template: >
+      {% if value_json['info'] > "" %}
+        mdi:information 
+      {% elif value_json['success'] > "" %}
+        mdi:message-text
+      {% elif value_json['warning'] > "" %}
+        mdi:message-alert
+      {% else %}
+        {{ states.sensor.pigarden_info_icon.state }}
+      {% endif %}
+
+  - platform: mqtt
+    name: pigarden_info_message
+    state_topic: "pigarden/result"
+    value_template: >
+      {% if value_json['info'] > "" or value_json['success'] > "" or value_json['warning'] > "" %}
+        {% if value_json['info'] > "" %}
+          {{ value_json['info'] }} ({{ value_json['timestamp'] | timestamp_local }})
+        {% endif %}
+        {% if value_json['success'] > "" %}
+          {{ value_json['success'] }} ({{ value_json['timestamp'] | timestamp_local }})
+        {% endif %}
+        {% if value_json['warning'] > "" %}
+          {{ value_json['warning'] }} ({{ value_json['timestamp'] | timestamp_local }})
+        {% endif %}
+      {% else %}
+          {{ states.sensor.pigarden_info_message.state }}
+      {% endif %}
+
+  - platform: mqtt
+    name: pigarden_last_rain_sensor
+    state_topic: "pigarden/result"
+    value_template: >
+      {% if value_json['last_rain_sensor'] > "" %}
+        {{ value_json['last_rain_sensor'] | int | timestamp_local }}
+      {% else %}
+        sconosciuto
+      {% endif %}
+
+  - platform: mqtt
+    name: pigarden_last_rain_online
+    state_topic: "pigarden/result"
+    value_template: >
+      {% if value_json['last_rain_online'] > "" %}
+        {{ value_json['last_rain_online'] | int | timestamp_local }}
+      {% else %}
+        sconosciuto
+      {% endif %}
+
+  - platform: template
+    sensors:
+      pigarden_info:
+        value_template: "{{ states.sensor.pigarden_info_message.state }}"
+        icon_template: "{{ states.sensor.pigarden_info_icon.state }}"
+
+
+  - platform: openweathermap
+    name: openweathermap
+    api_key: d4d22ea805788420267971135563b4cc
+    language: it
+    monitored_conditions:
+    - weather
+    - temperature
+    - wind_speed
+    - wind_bearing
+    - humidity
+    - pressure
+    - clouds
+    - rain
+    - snow
+
+
+binary_sensor:
+
+  #
+  # binary sensor per switch template pigarden
+  #
+  - platform: mqtt
+    name: pigarden_state_giardino_posteriore_dx
+    state_topic: "pigarden/result"
+    payload_on: true
+    payload_off: false
+    qos: 0
+    value_template: "{{ value_json['zones']['Giardino_Posteriore_DX']['state'] == 1 or value_json['zones']['Giardino_Posteriore_DX']['state'] == 2 }}"
+  - platform: mqtt
+    name: pigarden_state_giardino_posteriore_sx
+    state_topic: "pigarden/result"
+    payload_on: true
+    payload_off: false
+    qos: 0
+    value_template: "{{ value_json['zones']['Giardino_Posteriore_SX']['state'] == 1 or value_json['zones']['Giardino_Posteriore_SX']['state'] == 2 }}"
+  - platform: mqtt
+    name: pigarden_state_giardino_posteriore_cn
+    state_topic: "pigarden/result"
+    payload_on: true
+    payload_off: false
+    qos: 0
+    value_template: "{{ value_json['zones']['Giardino_Posteriore_CN']['state'] == 1 or value_json['zones']['Giardino_Posteriore_CN']['state'] == 2 }}"
+
+
+input_boolean:
+  pigarden_force_giardino_posteriore_dx:
+    name: Forza irrigazione in caso di pioggia
+    initial: off
+    icon: mdi:weather-rainy
+  pigarden_force_giardino_posteriore_sx:
+    name: Forza irrigazione in caso di pioggia
+    initial: off
+    icon: mdi:weather-rainy
+  pigarden_force_giardino_posteriore_cn:
+    name: Forza irrigazione in caso di pioggia
+    initial: off
+    icon: mdi:weather-rainy
+
+
+script:
+  pigarden_close_all:
+    alias: "Interrompi l'irrigazione di tutte le zone"
+    icon: mdi:stop
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "pigarden/command"
+          payload: close_all
+
+  pigarden_close_all_and_disable_scheduling:
+    alias: "Interrompi l'irrigazione di tutte le zone e diabilita le schedulazioni"
+    icon: mdi:clock-outline
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "pigarden/command"
+          payload: "close_all disable_scheduling"
+
+  pigarden_reboot:
+    alias: "Riavvia host piGarden"
+    icon: mdi:restart
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "pigarden/command"
+          payload: reboot
+
+  pigarden_poweroff:
+    alias: "Spegni host piGarden"
+    icon: mdi:power
+    sequence:
+      - service: mqtt.publish
+        data:
+          topic: "pigarden/command"
+          payload: poweroff
+
+
